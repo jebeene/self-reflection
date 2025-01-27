@@ -1,0 +1,6 @@
+# requirements.txt
+
+opencv-python
+tensorflow
+numpy
+RPi.GPIO

@@ -1,0 +1,11 @@
+.idea/
+__pycache__/
+datasets/
+logs/
+*.pth
+*.pt
+*.onnx
+models/*.pth
+models/*.pt
+models/*.onnx
+
