@@ -8,4 +8,4 @@ logs/
 models/*.pth
 models/*.pt
 models/*.onnx
-
+.DS_Store
