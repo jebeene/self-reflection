@@ -21,6 +21,7 @@ COPY .. /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir \
+    tensorflow==2.13.0 \
     opencv-python-headless \
     deepface \
     numpy \
