@@ -48,8 +48,9 @@ emotion_positions_bar = {
 # === GUI Setup ===
 root = Tk()
 root.title("Emotion Detection")
-root.geometry(f"{TARGET_WIDTH}x{TARGET_HEIGHT}")
-canvas = Canvas(root, width=TARGET_WIDTH, height=TARGET_HEIGHT)
+root.attributes('-fullscreen', True)
+canvas = Canvas(root)
+canvas.pack(fill="both", expand=True)
 canvas.pack()
 
 # === Load Header ===
@@ -187,7 +188,13 @@ def update_frame():
     combined = np.vstack((header_display, frame))
 
     # Convert to Tk-compatible format
-    combined_rgb = cv2.cvtColor(combined, cv2.COLOR_BGR2RGB)
+    # combined_rgb = cv2.cvtColor(combined, cv2.COLOR_BGR2RGB)
+    rotated = cv2.rotate(combined, cv2.ROTATE_90_CLOCKWISE)
+    canvas_width = canvas.winfo_width()
+    canvas_height = canvas.winfo_height()
+    resized_rotated = cv2.resize(rotated, (canvas_width, canvas_height))
+    combined_rgb = cv2.cvtColor(resized_rotated, cv2.COLOR_BGR2RGB)
+    # combined_rgb = cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(combined_rgb)
     imgtk = ImageTk.PhotoImage(image=img)
     canvas.create_image(0, 0, anchor="nw", image=imgtk)
