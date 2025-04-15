@@ -70,7 +70,7 @@ if not cap.isOpened():
     exit()
 
 # Load header image
-header = cv2.imread("header.png")
+header = cv2.imread("final/header.png")
 if header is None:
     print("[ERROR] Header image not found. Exiting...")
     exit()
