@@ -78,11 +78,13 @@ header_resized = resize_and_pad_header(header_img, TARGET_WIDTH, HEADER_HEIGHT)
 
 # === Camera Setup ===
 cap = cv2.VideoCapture(0)
-
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 # Shared state
 current_emotions = {}
 smooth_color = np.zeros(3, dtype=np.float32)
 processing = False
+frame_count = 0
 
 def crop_center(frame, target_w, target_h):
     h, w = frame.shape[:2]
@@ -116,10 +118,10 @@ def detect_emotion(frame):
     processing = False
 
 def update_frame():
-    global processing, smooth_color
+    global processing, smooth_color, frame_count
     ret, frame = cap.read()
     if not ret:
-        root.after(10, update_frame)
+        root.after(66, update_frame)
         return
 
     # Crop frame to the dimensions for video feed (from the camera)
@@ -130,11 +132,13 @@ def update_frame():
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5)
 
     # Process emotion only if a face is detected and not already processing
-    if len(faces) > 0 and not processing:
+    frame_count += 1
+    if frame_count % 5 == 0 and len(faces) > 0 and not processing:
         processing = True
         threading.Thread(target=detect_emotion, args=(frame.copy(),), daemon=True).start()
     elif len(faces) == 0:
         current_emotions.clear()
+        frame_count = 0
 
     # Color blend overlay
     target_color = blend_colors(current_emotions)

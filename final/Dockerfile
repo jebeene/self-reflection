@@ -29,8 +29,5 @@ RUN pip install --no-cache-dir \
     numpy \
     pillow
 
-# Set display environment variable for GUI (in container)
-ENV DISPLAY=$DISPLAY
-
 # Run the script
 CMD ["python", "self-reflection.py"]
