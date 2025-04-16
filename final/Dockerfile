@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     libgtk2.0-dev \
     libgtk-3-dev \
     tk \
+    python3-tk \
+    x11-xserver-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -27,8 +29,8 @@ RUN pip install --no-cache-dir \
     numpy \
     pillow
 
-# Set display environment variable for GUI
-ENV DISPLAY=:0
+# Set display environment variable for GUI (in container)
+ENV DISPLAY=$DISPLAY
 
 # Run the script
 CMD ["python", "self-reflection.py"]
