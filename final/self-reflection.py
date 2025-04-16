@@ -6,14 +6,23 @@ from tkinter import Tk, Canvas
 from PIL import Image, ImageTk
 
 # === Settings ===
-TARGET_WIDTH = 540
-HEADER_HEIGHT = 200
-VIDEO_HEIGHT = 760
-TARGET_HEIGHT = HEADER_HEIGHT + VIDEO_HEIGHT
+# These are the dimensions before rotation:
+TARGET_WIDTH = 540       # width of header and video feed (portrait arrangement)
+HEADER_HEIGHT = 200      # header height
+VIDEO_HEIGHT = 760       # video feed height
+TARGET_HEIGHT = HEADER_HEIGHT + VIDEO_HEIGHT  # 960
+
+# After rotating the combined image 90° clockwise,
+# the dimensions swap. Use these for the Tkinter window:
+ROTATED_WIDTH = TARGET_HEIGHT   # 960
+ROTATED_HEIGHT = TARGET_WIDTH   # 540
+
 alpha = 0.1  # Smoothing factor
-# Load OpenCV's built-in Haar cascade for face detection
+
+# Load Haar cascade for face detection
 haarcascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 face_cascade = cv2.CascadeClassifier(haarcascade_path)
+
 EMOTION_COLORS = {
     "angry": (0, 0, 255),
     "disgust": (0, 128, 0),
@@ -24,17 +33,7 @@ EMOTION_COLORS = {
     "neutral": (192, 192, 192)
 }
 
-# Emotion label positions in header.png (x_ratio, y_ratio)
-emotion_positions_percent = {
-    "angry": (0.21, 0.46),
-    "disgust": (0.24, 0.63),
-    "fear": (0.17, 0.80),
-    "happy": (0.72, 0.29),
-    "sad": (0.67, 0.46),
-    "surprise": (0.77, 0.63),
-    "neutral": (0.76, 0.80),
-}
-
+# Emotion bar positions in header.png (in percentages)
 emotion_positions_bar = {
     "angry": (0.21, 0.40),
     "disgust": (0.24, 0.57),
@@ -48,12 +47,13 @@ emotion_positions_bar = {
 # === GUI Setup ===
 root = Tk()
 root.title("Emotion Detection")
-root.attributes('-fullscreen', True)
+# Instead of fullscreen we force the window to the size of the rotated image.
+# (When displayed on a portrait monitor via proper OS/hardware rotation,
+#  the image will appear correct.)
 canvas = Canvas(root)
 canvas.pack(fill="both", expand=True)
-canvas.pack()
 
-# === Load Header ===
+# === Load and prepare Header Image ===
 header_img = cv2.imread("header.png")
 if header_img is None:
     raise FileNotFoundError("Header image not found.")
@@ -68,7 +68,8 @@ def resize_and_pad_header(img, width, height):
         top_pad = (height - new_h) // 2
         bottom_pad = height - new_h - top_pad
         bg_color = img[0, 0].tolist()
-        padded = cv2.copyMakeBorder(resized, top_pad, bottom_pad, 0, 0, cv2.BORDER_CONSTANT, value=bg_color)
+        padded = cv2.copyMakeBorder(resized, top_pad, bottom_pad, 0, 0,
+                                    cv2.BORDER_CONSTANT, value=bg_color)
         return padded
     else:
         return resized[:height, :, :]
@@ -121,13 +122,14 @@ def update_frame():
         root.after(10, update_frame)
         return
 
+    # Crop frame to the dimensions for video feed (from the camera)
     frame = crop_center(frame, TARGET_WIDTH, VIDEO_HEIGHT)
 
-    # Convert to grayscale for face detection
+    # Face detection
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5)
 
-    # Only process emotion if face is detected
+    # Process emotion only if a face is detected and not already processing
     if len(faces) > 0 and not processing:
         processing = True
         threading.Thread(target=detect_emotion, args=(frame.copy(),), daemon=True).start()
@@ -141,8 +143,7 @@ def update_frame():
     overlay = np.full(frame.shape, overlay_color, dtype=np.uint8)
     frame = cv2.addWeighted(overlay, 0.3, frame, 0.7, 0)
 
-    # === Prepare header with emotion % text ===
-    # === Prepare header with emotion bars ===
+    # Prepare header with emotion bar overlays
     header_display = header_resized.copy()
     BAR_WIDTH = 100
     BAR_HEIGHT = 12
@@ -155,50 +156,31 @@ def update_frame():
             y = int(y_ratio * HEADER_HEIGHT)
             color = EMOTION_COLORS.get(emotion, (255, 255, 255))
 
-            # Draw background bar (dark gray)
-            cv2.rectangle(
-                header_display,
-                (x, y),
-                (x + BAR_WIDTH, y + BAR_HEIGHT),
-                (50, 50, 50),
-                thickness=-1
-            )
-
-            # Draw filled portion of the bar
+            # Draw dark background bar
+            cv2.rectangle(header_display, (x, y), (x + BAR_WIDTH, y + BAR_HEIGHT),
+                          (50, 50, 50), thickness=-1)
+            # Draw filled bar portion based on confidence
             fill_width = int((confidence / 100) * BAR_WIDTH)
-            cv2.rectangle(
-                header_display,
-                (x, y),
-                (x + fill_width, y + BAR_HEIGHT),
-                color,
-                thickness=-1
-            )
+            cv2.rectangle(header_display, (x, y), (x + fill_width, y + BAR_HEIGHT),
+                          color, thickness=-1)
+            # Draw white border
+            cv2.rectangle(header_display, (x, y), (x + BAR_WIDTH, y + BAR_HEIGHT),
+                          BORDER_COLOR, thickness=1)
 
-            # Draw the border around the bar
-            cv2.rectangle(
-                header_display,
-                (x, y),
-                (x + BAR_WIDTH, y + BAR_HEIGHT),
-                BORDER_COLOR,
-                thickness=1
-            )
-
-
-    # === Stack header + video ===
+    # Stack header above video feed (combined image is 540x960, portrait)
     combined = np.vstack((header_display, frame))
 
-    # Convert to Tk-compatible format
-    # combined_rgb = cv2.cvtColor(combined, cv2.COLOR_BGR2RGB)
-    rotated = cv2.rotate(combined, cv2.ROTATE_90_CLOCKWISE)
+    # Rotate 90° clockwise; the rotated image now has dimensions 960x540.
+    rotated = cv2.rotate(combined, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    # Resize explicitly to fill the Tkinter canvas
     canvas_width = canvas.winfo_width()
     canvas_height = canvas.winfo_height()
     resized_rotated = cv2.resize(rotated, (canvas_width, canvas_height))
     combined_rgb = cv2.cvtColor(resized_rotated, cv2.COLOR_BGR2RGB)
-    # combined_rgb = cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(combined_rgb)
     imgtk = ImageTk.PhotoImage(image=img)
     canvas.create_image(0, 0, anchor="nw", image=imgtk)
-    canvas.imgtk = imgtk  # Reference
+    canvas.imgtk = imgtk  # keep a reference so it isn’t garbage-collected
 
     root.after(10, update_frame)
 
